@@ -58,7 +58,7 @@ extern USBD_DescriptorsTypeDef FS_Desc;
 /* USER CODE BEGIN 1 */
 uint8_t VCPSend(uint8_t* Buf, uint16_t Len)
 {
-  HAL_Delay(1);
+  HAL_Delay(10);
   return CDC_Transmit_FS(Buf, Len);
 }
 /* USER CODE END 1 */

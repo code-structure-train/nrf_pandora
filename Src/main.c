@@ -25,6 +25,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "mavlink.h"
 #include "MY_NRF24.h"
 /* USER CODE END Includes */
 
@@ -62,7 +63,9 @@ static void MX_SPI2_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+uint64_t RxpipeAddrs = 0x11223344AA;
+char myRxData[50];
+char myAckPayload[32] = "Ack by HandDevice!";
 /* USER CODE END 0 */
 
 /**
@@ -101,12 +104,62 @@ int main(void)
   /* USER CODE BEGIN 2 */
   HAL_Delay(10000);
   NRF24_begin(NRF_CE_GPIO_Port, NRF_CS_Pin, NRF_CE_Pin, hspi2);
+  printRadioSettings();
+
+  NRF24_setAutoAck(true);
+  NRF24_setChannel(52);
+  NRF24_setPayloadSize(32);
+  NRF24_openReadingPipe(1, RxpipeAddrs);
+	
+  NRF24_enableDynamicPayloads();
+  NRF24_enableAckPayload();
+	
+  NRF24_startListening();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    static mavlink_test_t packet;
+    
+    if(NRF24_available()) {
+      NRF24_read(myRxData, 32);
+      uint8_t i;
+      mavlink_message_t msg_receive;
+      mavlink_status_t mav_status;
+      for(i=0; i<32; i++) {
+        if(mavlink_parse_char(0, myRxData[i], &msg_receive, &mav_status)) {
+          switch (msg_receive.msgid) {
+            
+          case MAVLINK_MSG_ID_TEST: {
+            mavlink_msg_test_decode(&msg_receive, &packet);
+    
+            mavlink_message_t msg_ack;
+            mavlink_msg_test_pack(0, 0, &msg_ack,
+                                  packet.data8 +1,
+                                  packet.data16+1,
+                                  packet.data32+1.0f);
+            int len = mavlink_msg_to_send_buffer((uint8_t *)myAckPayload, &msg_ack);
+            NRF24_writeAckPayload(1, myAckPayload, len);
+            
+            char buffer[32];
+            
+            sprintf(buffer, "%d\r\n", packet.data8);
+            VCPSend((uint8_t *)buffer, strlen(buffer));
+            
+            sprintf(buffer, "%d\r\n", packet.data16);
+            VCPSend((uint8_t *)buffer, strlen(buffer));
+            
+            sprintf(buffer, "%.1f\r\n\r\n", packet.data32);
+            VCPSend((uint8_t *)buffer, strlen(buffer));
+            
+            break;
+          }
+          }
+        }
+      }
+    }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
