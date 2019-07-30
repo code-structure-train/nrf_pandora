@@ -102,7 +102,6 @@ int main(void)
   MX_SPI1_Init();
   MX_SPI2_Init();
   /* USER CODE BEGIN 2 */
-  HAL_Delay(10000);
   NRF24_begin(NRF_CE_GPIO_Port, NRF_CS_Pin, NRF_CE_Pin, hspi2);
   printRadioSettings();
 
@@ -121,7 +120,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    static mavlink_test_t packet;
+    static mavlink_simple_t packet;
     
     if(NRF24_available()) {
       NRF24_read(myRxData, 32);
@@ -132,26 +131,29 @@ int main(void)
         if(mavlink_parse_char(0, myRxData[i], &msg_receive, &mav_status)) {
           switch (msg_receive.msgid) {
             
-          case MAVLINK_MSG_ID_TEST: {
-            mavlink_msg_test_decode(&msg_receive, &packet);
+          case MAVLINK_MSG_ID_SIMPLE: {
+            mavlink_msg_simple_decode(&msg_receive, &packet);
     
+            uint8_t data = 0;
+            if(HAL_GPIO_ReadPin(WK_UP_GPIO_Port, WK_UP_Pin) == GPIO_PIN_SET){
+              data |= 0x03;
+            }else if(HAL_GPIO_ReadPin(KEY0_GPIO_Port, KEY0_Pin) == GPIO_PIN_RESET){
+              data |= 0x00;
+            }else if(HAL_GPIO_ReadPin(KEY0_GPIO_Port, KEY1_Pin) == GPIO_PIN_RESET){
+              data |= 0x01;
+            }else if(HAL_GPIO_ReadPin(KEY0_GPIO_Port, KEY2_Pin) == GPIO_PIN_RESET){
+              data |= 0x02;
+            }else{
+              data |= 0x07;
+            }
             mavlink_message_t msg_ack;
-            mavlink_msg_test_pack(0, 0, &msg_ack,
-                                  packet.data8 +1,
-                                  packet.data16+1,
-                                  packet.data32+1.0f);
+            mavlink_msg_simple_pack(0, 0, &msg_ack, data);
             int len = mavlink_msg_to_send_buffer((uint8_t *)myAckPayload, &msg_ack);
             NRF24_writeAckPayload(1, myAckPayload, len);
             
             char buffer[32];
             
-            sprintf(buffer, "%d\r\n", packet.data8);
-            VCPSend((uint8_t *)buffer, strlen(buffer));
-            
-            sprintf(buffer, "%d\r\n", packet.data16);
-            VCPSend((uint8_t *)buffer, strlen(buffer));
-            
-            sprintf(buffer, "%.1f\r\n\r\n", packet.data32);
+            sprintf(buffer, "%d\r\n", packet.data);
             VCPSend((uint8_t *)buffer, strlen(buffer));
             
             break;
@@ -318,8 +320,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitTypeDef GPIO_InitStruct = {0};
 
   /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
@@ -337,6 +339,12 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(NRF_CS_GPIO_Port, NRF_CS_Pin, GPIO_PIN_SET);
 
+  /*Configure GPIO pin : WK_UP_Pin */
+  GPIO_InitStruct.Pin = WK_UP_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(WK_UP_GPIO_Port, &GPIO_InitStruct);
+
   /*Configure GPIO pin : SD_CS_Pin */
   GPIO_InitStruct.Pin = SD_CS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -351,11 +359,11 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : NRF_IRQ_Pin */
-  GPIO_InitStruct.Pin = NRF_IRQ_Pin;
+  /*Configure GPIO pins : KEY2_Pin KEY1_Pin KEY0_Pin NRF_IRQ_Pin */
+  GPIO_InitStruct.Pin = KEY2_Pin|KEY1_Pin|KEY0_Pin|NRF_IRQ_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(NRF_IRQ_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
   /*Configure GPIO pins : NRF_CE_Pin NRF_CS_Pin */
   GPIO_InitStruct.Pin = NRF_CE_Pin|NRF_CS_Pin;
