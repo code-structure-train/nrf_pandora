@@ -138,11 +138,19 @@ int main(void)
             if(HAL_GPIO_ReadPin(WK_UP_GPIO_Port, WK_UP_Pin) == GPIO_PIN_SET){
               data |= 0x03;
             }else if(HAL_GPIO_ReadPin(KEY0_GPIO_Port, KEY0_Pin) == GPIO_PIN_RESET){
-              data |= 0x00;
+              if(HAL_GPIO_ReadPin(CMD_SW_GPIO_Port, CMD_SW_Pin) == GPIO_PIN_RESET){
+                data |= 0x00;
+              } else {
+                data |= 0x05;
+              }
             }else if(HAL_GPIO_ReadPin(KEY0_GPIO_Port, KEY1_Pin) == GPIO_PIN_RESET){
               data |= 0x01;
             }else if(HAL_GPIO_ReadPin(KEY0_GPIO_Port, KEY2_Pin) == GPIO_PIN_RESET){
-              data |= 0x02;
+              if(HAL_GPIO_ReadPin(CMD_SW_GPIO_Port, CMD_SW_Pin) == GPIO_PIN_RESET){
+                data |= 0x02;
+              } else {
+                data |= 0x06;
+              }
             }else{
               data |= 0x07;
             }
@@ -371,6 +379,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : CMD_SW_Pin */
+  GPIO_InitStruct.Pin = CMD_SW_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(CMD_SW_GPIO_Port, &GPIO_InitStruct);
 
 }
 
